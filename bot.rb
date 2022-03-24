@@ -23,7 +23,7 @@
 require 'telegram/bot'
 
 token = '5101790589:AAHIddrd97og8aUGNO40vOB0_00CJMKFsBw'
-mes_id = 0
+$mes_bind = ''
 
 #########################################################        
 def start(bot, message)
@@ -39,9 +39,7 @@ def add_value bot, message
     text2 = 'Пример: RUB = 1234 или BTC = 1234,1234'
     bot.api.send_message(chat_id: message.chat.id, text: text1)
     bot.api.send_message(chat_id: message.chat.id, text: text2)
-   puts message.message_id
-   puts mes_id
-     mes_id = message.message_id
+    $mes_bind = 'add_label'
 end
 #########################################################  
 
@@ -65,16 +63,15 @@ Telegram::Bot::Client.run(token) do |bot|
 ###########################
         when Telegram::Bot::Types::Message
            
-            if message.text == "/start"
-                    start(bot, message)
+            if message.text == "/start" 
+                start(bot, message)
             end
 
 
-        if mes_id == message.message_id - 1
-            puts 'asd'
-        end
-        puts "mes_id =  #{mes_id}"
-        puts "message.message_id - 1 = #{message.message_id - 1}"
+            if $mes_bind == 'add_label'
+                puts message.text
+                $mes_bind = ''
+            end
         
 
 
