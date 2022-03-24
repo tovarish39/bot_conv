@@ -65,11 +65,9 @@ Telegram::Bot::Client.run(token) do |bot|
            
             if message.text == "/start" 
                 start(bot, message)
-            end
-
-
-            if $mes_bind == 'add_label'
+            elsif $mes_bind == 'add_label'
                 puts message.text
+                puts '1'
                 $mes_bind = ''
             end
         
