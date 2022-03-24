@@ -1,6 +1,6 @@
 # приветствие
 
-# введите одну валюту для отслеживания в сокращённом формате с указанием количества. Пример: RUB = 1234 или BTC = 1234,1234 
+# введите одну валюту с указанием количества. Пример: RUB = 1234 или BTC = 1234,1234 
 # ввод -> выполнено добавлено в банк/не выполнено результат выполнения без общего статуса банка 
 # инлайн кнопка - добавить(повтор сообщений 3-й стр.),  инлайн кнопка - готово = статус
 
@@ -23,9 +23,27 @@
 require 'telegram/bot'
 
 token = '5101790589:AAHIddrd97og8aUGNO40vOB0_00CJMKFsBw'
+mes_id = 0
 
-
-
+#########################################################        
+def start(bot, message)
+    greeting = 'Добро пожаловать в бот "Мои финансы"'
+    reply_buttons = Telegram::Bot::Types::ReplyKeyboardMarkup
+                .new(keyboard: [['текущие курсы', 'изменить банк', 'текущий статус']], resize_keyboard: true)
+    bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup: reply_buttons)
+    add_value(bot, message)
+end
+# 
+def add_value bot, message
+    text1 = 'введите одну валюту с указанием количества.'
+    text2 = 'Пример: RUB = 1234 или BTC = 1234,1234'
+    bot.api.send_message(chat_id: message.chat.id, text: text1)
+    bot.api.send_message(chat_id: message.chat.id, text: text2)
+   puts message.message_id
+   puts mes_id
+     mes_id = message.message_id
+end
+#########################################################  
 
                    
 
@@ -36,21 +54,28 @@ token = '5101790589:AAHIddrd97og8aUGNO40vOB0_00CJMKFsBw'
 
 Telegram::Bot::Client.run(token) do |bot|
   bot.listen do |message|
-##################################################################################        
-def start
-    bot.api.send_message(chat_id: message.chat.id, text: 'Добро пожаловать в бот "Мои финансы"') 
-end
-##################################################################################        
     case message
-        when Telegram::Bot::Types::CallbackQuery
-        when Telegram::Bot::Types::Message
 
-            case message.text
-                when "/start"
-                    bot.api.send_message(chat_id: message.chat.id, text: 'Добро пожаловать в бот "Мои финансы"')
-                    # start()
+
+
+
+###########################
+        when Telegram::Bot::Types::CallbackQuery
+       
+###########################
+        when Telegram::Bot::Types::Message
+           
+            if message.text == "/start"
+                    start(bot, message)
             end
 
+
+        if mes_id == message.message_id - 1
+            puts 'asd'
+        end
+        puts "mes_id =  #{mes_id}"
+        puts "message.message_id - 1 = #{message.message_id - 1}"
+        
 
 
 
