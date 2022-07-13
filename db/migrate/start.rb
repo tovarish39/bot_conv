@@ -1,6 +1,5 @@
 
 require 'active_record'
-# require 'sqlite3'
 
 ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: '../db.db')
 
@@ -26,7 +25,7 @@ end
 
 class CreateCurrencies < ActiveRecord::Migration[7.0]
     def change
-      create_table :currencies do |t|
+      create_table :currencies, id: false do |t|
         t.string :currency, null: false, primary_key: true
       end
     end
@@ -34,7 +33,7 @@ class CreateCurrencies < ActiveRecord::Migration[7.0]
   
 class CreatePairs < ActiveRecord::Migration[7.0]
   def change
-    create_table :pairs do |t|
+    create_table :pairs, id: false do |t|
       t.string :pair, null: false, primary_key: true
     end
   end
