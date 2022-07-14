@@ -22,25 +22,6 @@ class CreateWallets < ActiveRecord::Migration[7.0]
   end
 end
     
-
-class CreateCurrencies < ActiveRecord::Migration[7.0]
-    def change
-      create_table :currencies, id: false do |t|
-        t.string :currency, null: false, primary_key: true
-      end
-    end
-  end
-  
-class CreatePairs < ActiveRecord::Migration[7.0]
-  def change
-    create_table :pairs, id: false do |t|
-      t.string :pair, null: false, primary_key: true
-    end
-  end
-end
-
 CreateUsers.migrate(:up)  
 CreateWallets.migrate(:up)  
-CreateCurrencies.migrate(:up)  
-CreatePairs.migrate(:up)  
 
