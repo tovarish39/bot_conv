@@ -21,16 +21,24 @@
 # кнопка reply - текущий статус
 
 require 'telegram/bot'
+require "./get-fiat.rb"
+
+
 
 token = '5101790589:AAHIddrd97og8aUGNO40vOB0_00CJMKFsBw'
 $mes_bind = ''
 
+
+
 #########################################################        
 def start(bot, message)
+
+    kb = Fiat.get()
+    markup = Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: kb)
+
+
     greeting = 'Добро пожаловать в бот "Мои финансы"'
-    reply_buttons = Telegram::Bot::Types::ReplyKeyboardMarkup
-                .new(keyboard: [['текущие курсы', 'изменить банк', 'текущий статус']], resize_keyboard: true)
-    bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup: reply_buttons)
+    bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup: markup)
     add_value(bot, message)
 end
 # 
@@ -59,7 +67,10 @@ Telegram::Bot::Client.run(token) do |bot|
 
 ###########################
         when Telegram::Bot::Types::CallbackQuery
-       
+            puts message.data
+            puts message.message.chat.id
+bot.api.send_message(chat_id: message.message.chat.id, text: message.data)
+
 ###########################
         when Telegram::Bot::Types::Message
            
@@ -78,7 +89,3 @@ Telegram::Bot::Client.run(token) do |bot|
   end
 end
 
-
-# for commiting
-# for commiting
-# for commiting
