@@ -1,59 +1,12 @@
-# приветствие
-
-# введите одну валюту с указанием количества. Пример: RUB = 1234 или BTC = 1234,1234 
-# ввод -> выполнено добавлено в банк/не выполнено результат выполнения без общего статуса банка 
-# инлайн кнопка - добавить(повтор сообщений 3-й стр.),  инлайн кнопка - готово = статус
-
-
-# статус 
-# свой банк
-# это может быть переконвертировано в ... RUB
-# инлайн кнопка - поменять валюту конвертации
-# -> введите валюту в которую хотите переконвертировать
-
-# изменить банк
-# инлайн кнопка - удаление валюты из отслеживания
-# инлайн кнопка - добавление новой валюты или изменения количества существующей
-
-
-# кнопка reply - информация по текущим курсам(+только для выбранных пар валют)
-# кнопка reply - изменить банка 
-# кнопка reply - текущий статус
-
 require 'telegram/bot'
-require "./get-fiat.rb"
 
-
+require "./get-fiat.rb"       # get_cripto_catalog_keyboard(), get_fiat_catalog_keyboard()
+require '../models/User.rb'   # create_user(), 
+require '../models/Wallet.rb' #
+require './handle-messages.rb'# start(), instruction(), get_data()
 
 token = '5101790589:AAHIddrd97og8aUGNO40vOB0_00CJMKFsBw'
-$mes_bind = ''
-
-
-
-#########################################################        
-def start(bot, message)
-
-    kb = get_cripto_catalog_keyboard(4)
-    # kb = get_fiat_catalog_keyboard(4)
-
-    markup = Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: kb)
-
-
-    greeting = 'Добро пожаловать в бот "Мои финансы"'
-    bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup: markup)
-    add_value(bot, message)
-end
-# 
-def add_value bot, message
-    text1 = 'введите одну валюту с указанием количества.'
-    text2 = 'Пример: RUB = 1234 или BTC = 1234,1234'
-    bot.api.send_message(chat_id: message.chat.id, text: text1)
-    bot.api.send_message(chat_id: message.chat.id, text: text2)
-    $mes_bind = 'add_label'
-end
-#########################################################  
-
-                   
+list_currencies = File.read('../asset/coins.txt')
 
 
 
@@ -63,31 +16,55 @@ end
 Telegram::Bot::Client.run(token) do |bot|
   bot.listen do |message|
     case message
+      when Telegram::Bot::Types::Message
+######################################################
+        if (message.text == '/start')
+            start(bot, message)
+#           # создание user
+            User.create_user(message)
+        elsif (message.text == 'инструкция по изменению отслеживаемых валют')
+            instruction(bot, message)
+      
+        else 
+          data = get_data(message.text)
 
-
-
-
-###########################
-        when Telegram::Bot::Types::CallbackQuery
-            puts message.data
-            puts "выбрано #{message.data}"
-bot.api.send_message(chat_id: message.message.chat.id, text: "выбрано #{message.data}")
-
-###########################
-        when Telegram::Bot::Types::Message
-           
-            if message.text == "/start" 
-                start(bot, message)
-            elsif $mes_bind == 'add_label'
-                puts message.text
-                puts '1'
-                $mes_bind = ''
+          if (data['to_convert'] && list_currencies.include?(data['currency']))
+#           # ввод валюты для конвертации
+            User.manage_to_currency(message, data['currency'])
+            bot.api.send_message(chat_id: message.chat.id, text: "#{data['currency']} на конвертацию")
+          elsif (list_currencies.include?(data['currency']) && (data['value']))
+            if (data['value'] == '0')
+#             # если 0, то удаление валюты из банка
+              current_user_id = User.current_user(message.from.id).id
+              Wallet.delete_currency(current_user_id, data['currency'])
+              bot.api.send_message(chat_id: message.chat.id, text: "удаление из банка #{data['currency']}")
+            else
+#             # ввод валюты + значение
+              current_user_id = User.current_user(message.from.id).id
+              Wallet.create_update(current_user_id, data)
+              bot.api.send_message(chat_id: message.chat.id, text: "добавление #{data['currency']} == #{data['value']}")
             end
-        
-
-
-
+          else
+            messege_output = 'введённая валюта не отслеживается или не корректный ввод'
+            bot.api.send_message(chat_id: message.chat.id, text: messege_output)
+            instruction(bot, message)
+          end
+        end
+######################################################
+      when Telegram::Bot::Types::CallbackQuery
+        if message.data == 'список фиатных валют'
+          kb = get_fiat_catalog_keyboard(5)
+          markup = Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: kb)  
+          bot.api.send_message(chat_id: message.message.chat.id, text: "список фиатных валют", reply_markup:markup)
+        elsif message.data == 'список крипто валют'
+          kb = get_cripto_catalog_keyboard(5)
+          markup = Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: kb)  
+          bot.api.send_message(chat_id: message.message.chat.id, text: "список крипто валют", reply_markup:markup)
+        end
+######################################################
     end 
   end
 end
+
+
 
