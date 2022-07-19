@@ -33,7 +33,9 @@ $mes_bind = ''
 #########################################################        
 def start(bot, message)
 
-    kb = Fiat.get()
+    kb = get_cripto_catalog_keyboard(4)
+    # kb = get_fiat_catalog_keyboard(4)
+
     markup = Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: kb)
 
 
@@ -68,8 +70,8 @@ Telegram::Bot::Client.run(token) do |bot|
 ###########################
         when Telegram::Bot::Types::CallbackQuery
             puts message.data
-            puts message.message.chat.id
-bot.api.send_message(chat_id: message.message.chat.id, text: message.data)
+            puts "выбрано #{message.data}"
+bot.api.send_message(chat_id: message.message.chat.id, text: "выбрано #{message.data}")
 
 ###########################
         when Telegram::Bot::Types::Message
