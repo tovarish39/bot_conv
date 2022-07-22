@@ -13,8 +13,9 @@ const get_coins = (symbols) => {
 
 
 const to_handled_string = (coins) => {
-    const str = JSON.stringify(coins)
-    return str.replace(/[\[\]"]/g, '')
+    return JSON.stringify(coins)
+    // const str = JSON.stringify(coins)
+    // return str.replace(/[\[\]"]/g, '')
 }
 
 

@@ -8,7 +8,8 @@ fetch('https://api.binance.com/api/v3/ticker/price')
         json.forEach(el=>{
             symbols.push(el.symbol)
         })
-        fsp.writeFile('../asset/all-pairs.txt', JSON.stringify(symbols).replace(/[\[\]"]/g, ''))
+        // fsp.writeFile('../asset/all-pairs.txt', JSON.stringify(symbols).replace(/[\[\]"]/g, ''))
+        fsp.writeFile('../asset/all-pairs.txt', JSON.stringify(symbols))
     })
 
 

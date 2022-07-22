@@ -25,29 +25,30 @@ Telegram::Bot::Client.run(token) do |bot|
         elsif (message.text == 'инструкция по изменению отслеживаемых валют')
             instruction(bot, message)
       
-        else 
+        else
           data = get_data(message.text)
-
-          if (data['to_convert'] && list_currencies.include?(data['currency']))
-#           # ввод валюты для конвертации
-            User.manage_to_currency(message, data['currency'])
-            bot.api.send_message(chat_id: message.chat.id, text: "#{data['currency']} на конвертацию")
-          elsif (list_currencies.include?(data['currency']) && (data['value']))
-            if (data['value'] == '0')
-#             # если 0, то удаление валюты из банка
-              current_user_id = User.current_user(message.from.id).id
-              Wallet.delete_currency(current_user_id, data['currency'])
-              bot.api.send_message(chat_id: message.chat.id, text: "удаление из банка #{data['currency']}")
+          if data != nil
+            if (data['to_convert'] && list_currencies.include?(data['currency']))
+#             # ввод валюты для конвертации
+              User.manage_to_currency(message, data['currency'])
+              bot.api.send_message(chat_id: message.chat.id, text: "#{data['currency']} на конвертацию")
+            elsif (list_currencies.include?(data['currency']) && (data['value']))
+              if (data['value'] == '0')
+#               # если 0, то удаление валюты из банка
+                current_user_id = User.current_user(message.from.id).id
+                Wallet.delete_currency(current_user_id, data['currency'])
+                bot.api.send_message(chat_id: message.chat.id, text: "удаление из банка #{data['currency']}")
+              else
+#               # ввод валюты + значение
+                current_user_id = User.current_user(message.from.id).id
+                Wallet.create_update(current_user_id, data)
+                bot.api.send_message(chat_id: message.chat.id, text: "добавление #{data['currency']} == #{data['value']}")
+              end
             else
-#             # ввод валюты + значение
-              current_user_id = User.current_user(message.from.id).id
-              Wallet.create_update(current_user_id, data)
-              bot.api.send_message(chat_id: message.chat.id, text: "добавление #{data['currency']} == #{data['value']}")
+              messege_output = 'введённая валюта не отслеживается или не корректный ввод'
+              bot.api.send_message(chat_id: message.chat.id, text: messege_output)
+              instruction(bot, message)
             end
-          else
-            messege_output = 'введённая валюта не отслеживается или не корректный ввод'
-            bot.api.send_message(chat_id: message.chat.id, text: messege_output)
-            instruction(bot, message)
           end
         end
 ######################################################

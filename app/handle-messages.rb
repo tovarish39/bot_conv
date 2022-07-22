@@ -25,10 +25,12 @@ def start(bot, message)
   end
   
   def get_data(message)
-      return {
+      # if message != nil
+        return {
           'currency' => (message.slice(/[A-Za-z]+/) ? message.slice(/[A-Za-z]+/).upcase : 'false' ),
           'value' => message.slice(/([0-9]*[.])?[0-9]+/),
           'to_convert' => (message.include?('конвертировать') ? true : false )
           }
+      # end
   end
   
