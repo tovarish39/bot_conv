@@ -7,6 +7,7 @@ GEM
       thread_safe (~> 0.3, >= 0.3.1)
     coercible (1.0.0)
       descendants_tracker (~> 0.0.1)
+    colorize (0.8.1)
     descendants_tracker (0.0.4)
       thread_safe (~> 0.3, >= 0.3.1)
     dry-inflector (0.3.0)
@@ -51,6 +52,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  colorize (~> 0.8.1)
   sqlite3 (~> 1.4, >= 1.4.4)
   telegram-bot-ruby (~> 0.19.2)
 
