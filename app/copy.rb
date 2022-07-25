@@ -13,9 +13,8 @@ def get_pair_L1(from, to)
   pair_direct = Pairs.include?(from + to) ? from + to : nil  
   pair2_reverse = Pairs.include?(to + from) ? to + from : nil  
   return nil unless pair_direct || pair2_reverse
-  return {pairs: [pair_direct || pair2_reverse]}
-  # return {pair: pair_direct,   direction: 'direct', have_in_Pairs?: Pairs.include?(pair_direct) } if pair_direct
-  # return {pair: pair2_reverse, direction: 'reverse', have_in_Pairs?: Pairs.include?(pair2_reverse)} if pair2_reverse
+  return {pair: pair_direct,   direction: 'direct', have_in_Pairs?: Pairs.include?(pair_direct) } if pair_direct
+  return {pair: pair2_reverse, direction: 'reverse', have_in_Pairs?: Pairs.include?(pair2_reverse)} if pair2_reverse
 end
 
 
@@ -49,10 +48,9 @@ def get_pairs_L2(from, to)
   first_direction  =  first_pair.match(/^#{from}/) ? 'direct' : 'reverse' 
   second_direction = second_pair.match(/^#{to}/)   ? 'direct' : 'reverse' 
   puts "error".red unless Pairs.include?(first_pair) || Pairs.include?(second_pair)
-  return {pairs: [first_pair, second_pair]}
-  # return {:first_pair  => { pair: first_pair,  direction: first_direction, have_in_Pairs?: Pairs.include?(first_pair)},
-  #         :second_pair => { pair: second_pair, direction: second_direction, have_in_Pairs?: Pairs.include?(second_pair)}
-  #       }
+  return {:first_pair  => { pair: first_pair,  direction: first_direction, have_in_Pairs?: Pairs.include?(first_pair)},
+          :second_pair => { pair: second_pair, direction: second_direction, have_in_Pairs?: Pairs.include?(second_pair)}
+        }
 end
 
 # если между currencies промежуточная пара
@@ -112,10 +110,9 @@ def get_pairs_L3(from, to)
   first_direction  =  first_pair.match(/^#{from}/) ? 'direct' : 'reverse' 
   second_direction = second_pair.match(/^#{to}/)   ? 'direct' : 'reverse' 
   puts "error".red unless Pairs.include?(first_pair) || Pairs.include?(second_pair) || Pairs.include?(pair_common)
-  return {pairs: [first_pair, second_pair, pair_common]}
-  # return {:first_pair =>  { pair: first_pair, direction: first_direction, coin_from:coin11, coin_last:coin12, have_in_Pairs?: Pairs.include?(first_pair)},
-  #         :second_pair => { pair: second_pair, direction: second_direction, coin_to:coin21, coin_last:coin22, have_in_Pairs?: Pairs.include?(second_pair)},
-  #         :pair_common => { pair: pair_common, direction: dicrection_of_pair_common, coin1:coin1_of_pair_common, coin2:coin2_of_pair_common, have_in_Pairs?: Pairs.include?(pair_common)} }
+  return {:first_pair =>  { pair: first_pair, direction: first_direction, coin_from:coin11, coin_last:coin12, have_in_Pairs?: Pairs.include?(first_pair)},
+          :second_pair => { pair: second_pair, direction: second_direction, coin_to:coin21, coin_last:coin22, have_in_Pairs?: Pairs.include?(second_pair)},
+          :pair_common => { pair: pair_common, direction: dicrection_of_pair_common, coin1:coin1_of_pair_common, coin2:coin2_of_pair_common, have_in_Pairs?: Pairs.include?(pair_common)} }
 end
 
 

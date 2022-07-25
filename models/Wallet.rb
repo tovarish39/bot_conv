@@ -15,6 +15,8 @@ class Wallet < ActiveRecord::Base
         wallet = Wallet.find_by(user_id:current_user_id, from_currency:currency)
         wallet ? wallet.destroy : ''
     end
+
+    scope :wallets, -> (id) {where(user_id:id)}
 end
 
 

@@ -5,7 +5,7 @@ def start(bot, message)
     greeting = 'Добро пожаловать в бот "Мои финансы" вы можете заполнить свой банк и отслеживать конвертацию банка в выбраной валюте, которая по умолчанию "RUB"'
     kb_below = Telegram::Bot::Types::ReplyKeyboardMarkup
       .new(keyboard: [['текущее состояние банка', 'инструкция по изменению отслеживаемых валют']], resize_keyboard:true)
-      bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup:kb_below)
+      bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup:kb_below, one_time_keyboard: false)
   end
   
   def instruction(bot, message)
@@ -29,8 +29,15 @@ def start(bot, message)
         return {
           'currency' => (message.slice(/[A-Za-z]+/) ? message.slice(/[A-Za-z]+/).upcase : 'false' ),
           'value' => message.slice(/([0-9]*[.])?[0-9]+/),
-          'to_convert' => (message.include?('конвертировать') ? true : false )
+          'to_convert' => (message.match(/конвертировать/ui) ? true : false )
           }
       # end
   end
   
+  def get_message_from(wallets)
+    message = 'у вас в банке'
+    for wal in wallets
+      message += "\n \"#{wal.from_currency}\" = #{wal.amount}"
+    end
+    return message
+  end
