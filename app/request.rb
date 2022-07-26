@@ -1,363 +1,243 @@
 require 'net/http'
 require 'json'
 require 'colorize'
-require './find-pairs-to-request.rb'
-require '../models/Wallet.rb'
-require '../models/User.rb'
+require_relative './find-pairs-to-request.rb'
+# require_relative '../models/Wallet.rb'
+# require_relative '../models/User.rb'
 
 def request(wallets, to)
-    # wallets = Wallet.all
-    # to = 'EUR'
+  coins_from = []
+  pairs_to_request = []
+  result = 0
+  
+  for wallet in wallets
+    coins_from << wallet.from_currency 
+  end
+  
+  for from in coins_from
+    next if from == to 
+    pair_s = get_pair_L1(from, to) || get_pairs_L2(from, to) || get_pairs_L3(from, to)
+    pair_s[:pairs].each {|pair| pairs_to_request << pair}
+  end
 
+  # pairs_to_request = ["BTCEUR", "BTCBUSD", "BTCBBTC", "BTCRUB", "BTCBUSD", "BTCBBTC"]
 
-    coins_from = []
-    for wallet in wallets
-        coins_from << wallet.from_currency 
+  return wallets.first.amount if  pairs_to_request.size == 0
+
+  pairs_str = pairs_to_request.uniq.join('","')
+  
+  params = "symbols=[\"#{pairs_str}\"]"
+  uri = URI("https://api.binance.com/api/v3/ticker/price?#{params}")
+  
+  res = JSON.parse(Net::HTTP.get(uri))  
+  @res_pairs = res.map {|obj| {obj["symbol"]=>obj["price"]}}
+  
+puts "cois from = ".yellow + "#{coins_from}"
+puts "coin to   = ".yellow + to
+puts "response  = ".yellow + "#{res}"
+#########################################################################################################################
+# handle response
+  def value(pair)
+      @res_pairs.each  do |obj|
+      if obj.keys.first == pair 
+        return obj.values.first.to_f
+      end
+    end
+  end
+
+  def have?(pair)
+    @res_pairs.each do |obj| 
+      if obj.keys.first == pair 
+        return true
+      end
+    end
+    return false
+  end
+#########################################################################################################################
+  for wal in wallets
+    puts "#{result}".yellow
+    current = 0
+    from = wal.from_currency
+#########################################################################################################################
+# если from и to одинаковы
+    if from == to; result += wal.amount.to_f; next; end
+
+#########################################################################################################################
+# если есть прямая или обратная пара из from и to
+    if have?(from+to)
+      result += wal.amount.to_f * value(from+to); next
+    elsif have?(to+from)
+      result += wal.amount.to_f / value(to+from); next
     end
 
-    pairs_to_request = []
-    for from in coins_from
-        next if from == to 
-        pair_s = get_pair_L1(from, to) || get_pairs_L2(from, to) || get_pairs_L3(from, to)
-        pair_s[:pairs].each {|pair| pairs_to_request << pair}
+#########################################################################################################################
+#############
+    response_pairs_arr = res.map {|obj| obj["symbol"]}
+    rests_from = response_pairs_arr.filter{|pair| pair.match(/^#{from}|#{from}$/)}.map{|pair| pair.gsub(/^#{from}|#{from}$/, '')}
+    rests_to   = response_pairs_arr.filter{|pair| pair.match(/^#{to}|#{to}$/)}    .map{|pair| pair.gsub(/^#{to}|#{to}$/, '')}
+# p response_pairs_arr
+# p rests_from
+# p rests_to
+
+# если пары через промежуточную валюту
+    common_coin = rests_from.intersection(rests_to).first
+    if common_coin
+      if have?(from+common_coin)
+        current = wal.amount.to_f * value(from+common_coin)
+        if have?(to+common_coin)
+          result += current / value(to+common_coin); next
+        elsif have?(common_coin+to)
+          result += current * value(common_coin+to); next
+        end
+      elsif have?(common_coin+from)
+        current = wal.amount.to_f / value(common_coin+from)
+        if have?(to+common_coin)
+          result += current / value(to+common_coin); next
+        elsif have?(common_coin+to)
+          result += current * value(common_coin+to); next
+        end
+      end
     end
-
-    pairs_str = pairs_to_request.uniq.join('","')
-    puts "cois from =  ".yellow + "#{coins_from}"
-    puts "coin to = ".yellow + to
-
-
-
-    return wallets.first.amount if  pairs_to_request.size == 0
-    params =  pairs_to_request.size > 1 ? "symbols=[\"#{pairs_str}\"]" : "symbol=#{pairs_to_request[0]}"
-    uri = URI("https://api.binance.com/api/v3/ticker/price?#{params}")
-
-    res = JSON.parse(Net::HTTP.get(uri))
-
-    # puts res_json
-    # File.write('./response.txt', res.to_s)
-
-
-    # res = JSON.parse(File.read('./response.txt'))
-
-
-    # res = JSON.parse(File.read('./response.txt'))
-puts res
-
-
-    res = [res] if res.class == Hash
-
-
-
-    res_pairs = res.map {|obj| obj["symbol"]}
-
-
-
-
-
-    # GASBTC
-    # BTCBBTC
-    # BTCBUSD
-    # BTCEUR
-    # KDABTC
-
-
-
-
-
-
-
-
-
-
-    amount_result = 0
-    for wallet in wallets
-        from = wallet.from_currency
-        amount_current = 0
-
-    # если from и to одинаковы
-        if from == to
-         amount_result += wallet.amount.to_f
-         next
+#########################################################################################################################
+#############
+    coin1C = ''# common coin 1
+    coin2C = ''# common coin 2
+    pairC = '' # common pair
+    for coin1 in rests_from do
+      for coin2 in rests_to do
+        if have?(coin1+coin2)
+          pairC = coin1+coin2
+          coin1C = coin1
+          coin2C = coin2
+          break
+        elsif have?(coin2+coin1)  
+          pairC = coin2+coin1
+          coin1C = coin2
+          coin2C = coin1
+          break
         end
-
-    # если есть прямая или обратная пара из from и to
-        if res_pairs.include?(from+to)
-          pair = res.select {|obj| obj["symbol"] == from+to}.first
-          amount_result += wallet.amount.to_f * pair["price"].to_f
-          next
-        elsif res_pairs.include?(to+from)
-          pair = res.select {|obj| obj["symbol"] == to+from}.first
-          amount_result += wallet.amount.to_f / pair["price"].to_f
-          next
-        end
-    #############
-        rests_of_pairs_with_from = res_pairs.filter{|pair| pair.match(/^#{from}|#{from}$/)}.map{|pair| pair.gsub(/^#{from}|#{from}$/, '')}
-        rests_of_pairs_with_to   = res_pairs.filter{|pair| pair.match(/^#{to}|#{to}$/)}    .map{|pair| pair.gsub(/^#{to}|#{to}$/, '')}
-    # если пары через промежуточную валюту
-        common_coin = rests_of_pairs_with_from.intersection(rests_of_pairs_with_to)[0]
-        if common_coin
-            if res_pairs.include?(from+common_coin)
-              pair = res.select {|obj| obj["symbol"] == from+common_coin}.first
-              amount_current = wallet.amount.to_f * pair["price"].to_f
-              if res_pairs.include?(to+common_coin)
-                pair = res.select {|obj| obj["symbol"] == to+common_coin}.first
-                amount_result += amount_current / pair["price"].to_f
-                next
-              elsif res_pairs.include?(common_coin+to)
-                pair = res.select {|obj| obj["symbol"] == common_coin+to}.first
-                amount_result += amount_current * pair["price"].to_f
-                next
-              end
-            elsif res_pairs.include?(common_coin+from)
-              pair = res.select {|obj| obj["symbol"] == common_coin+from}.first
-              amount_current = wallet.amount.to_f / pair["price"].to_f
-              if res_pairs.include?(to+common_coin)
-                pair = res.select {|obj| obj["symbol"] == to+common_coin}.first
-                amount_result += amount_current / pair["price"].to_f
-                next
-              elsif res_pairs.include?(common_coin+to)
-                pair = res.select {|obj| obj["symbol"] == common_coin+to}.first
-                amount_result += amount_current * pair["price"].to_f
-                next
-              end
-            end
-        end
-    # если пары через промежуточную пару
-        coin_common1 = ''
-        coin_common2 = ''
-        pair_common = ''
-        for coin1 in rests_of_pairs_with_from do
-          for coin2 in rests_of_pairs_with_to do
-            if res_pairs.include?(coin1+coin2)
-              pair_common = coin1+coin2
-              coin_common1 = coin1
-              coin_common2 = coin2
-              break
-            elsif res_pairs.include?(coin2+coin1)  
-              pair_common = coin2+coin1
-              coin_common1 = coin2
-              coin_common2 = coin1
-              break
-            end
-          end
-        end
-
-
-
-        if res_pairs.include?(from+coin_common1)
-            pair = res.select {|obj| obj["symbol"] == from+coin_common1}.first
-            amount_current = wallet.amount.to_f * pair["price"].to_f
-
-            if res_pairs.include?(coin_common1+coin_common2)
-                pair = res.select {|obj| obj["symbol"] == coin_common1+coin_common2}.first
-                amount_current *= pair["price"].to_f
-
-
-                if res_pairs.include?(to+coin_common1)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common1+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(to+coin_common2)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common2+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                end
-
-            elsif res_pairs.include?(coin_common2+coin_common1)
-    # проверено #
-                pair = res.select {|obj| obj["symbol"] == coin_common2+coin_common1}.first
-                amount_current /= pair["price"].to_f
-
-                if res_pairs.include?(to+coin_common1)
-    # проверено #
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common1+to)
-    # проверено #             
-                  pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(to+coin_common2)
-    # проверено #
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common2+to)
-    # проверено
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                end
-            end
-
-        elsif res_pairs.include?(coin_common1+from)
-            pair = res.select {|obj| obj["symbol"] == coin_common1+from}.first
-            amount_current = wallet.amount.to_f / pair["price"].to_f
-
-
-            if res_pairs.include?(coin_common1+coin_common2)
-                pair = res.select {|obj| obj["symbol"] == coin_common1+coin_common2}.first
-                amount_current *= pair["price"].to_f
-                if res_pairs.include?(to+coin_common1)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common1+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(to+coin_common2)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common2+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                end
-            
-            elsif res_pairs.include?(coin_common2+coin_common1)
-                pair = res.select {|obj| obj["symbol"] == coin_common2+coin_common1}.first
-                amount_current /= pair["price"].to_f
-
-                if res_pairs.include?(to+coin_common1)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common1+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(to+coin_common2)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common2+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                end
-            end
-
-
-
-
-
-        elsif res_pairs.include?(from+coin_common2)
-            pair = res.select {|obj| obj["symbol"] == from+coin_common2}.first
-            amount_current = wallet.amount.to_f * pair["price"].to_f
-        
-            if res_pairs.include?(coin_common1+coin_common2)
-              pair = res.select {|obj| obj["symbol"] == coin_common1+coin_common2}.first
-              amount_current *= pair["price"].to_f
-
-                if res_pairs.include?(to+coin_common1)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common1+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(to+coin_common2)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common2+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                end
-
-            elsif res_pairs.include?(coin_common2+coin_common1)
-                pair = res.select {|obj| obj["symbol"] == coin_common2+coin_common1}.first
-                amount_current /= pair["price"].to_f
-
-                if res_pairs.include?(to+coin_common1)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common1+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(to+coin_common2)
-                  pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                  amount_result += amount_current / pair["price"].to_f
-                  next
-                elsif res_pairs.include?(coin_common2+to)
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                  amount_result += amount_current * pair["price"].to_f
-                  next
-                end
-            end
-        
-            elsif res_pairs.include?(coin_common2+from)
-                pair = res.select {|obj| obj["symbol"] == coin_common2+from}.first
-                amount_current = wallet.amount.to_f / pair["price"].to_f
-     
-            
-                if res_pairs.include?(coin_common1+coin_common2)
-                    pair = res.select {|obj| obj["symbol"] == coin_common1+coin_common2}.first
-                    amount_current *= pair["price"].to_f
-                    if res_pairs.include?(to+coin_common1)
-                      pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                      amount_result += amount_current / pair["price"].to_f
-                      next
-                    elsif res_pairs.include?(coin_common1+to)
-                      pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                      amount_result += amount_current * pair["price"].to_f
-                      next
-                    elsif res_pairs.include?(to+coin_common2)
-                      pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                      amount_result += amount_current / pair["price"].to_f
-                      next
-                    elsif res_pairs.include?(coin_common2+to)
-                      pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                      amount_result += amount_current * pair["price"].to_f
-                      next
-                    end
-                
-                elsif res_pairs.include?(coin_common2+coin_common1)
-                    puts '2' 
-                  pair = res.select {|obj| obj["symbol"] == coin_common2+coin_common1}.first
-                  amount_current /= pair["price"].to_f
-                
-                  if res_pairs.include?(to+coin_common1)
-                    pair = res.select {|obj| obj["symbol"] == to+coin_common1}.first
-                    amount_result += amount_current * pair["price"].to_f
-                    next
-                  elsif res_pairs.include?(coin_common1+to)
-                    pair = res.select {|obj| obj["symbol"] == coin_common1+to}.first
-                    amount_result += amount_current / pair["price"].to_f
-                    next
-                  elsif res_pairs.include?(to+coin_common2)
-                    pair = res.select {|obj| obj["symbol"] == to+coin_common2}.first
-                    amount_result += amount_current / pair["price"].to_f
-                    next
-                  elsif res_pairs.include?(coin_common2+to)
-                    pair = res.select {|obj| obj["symbol"] == coin_common2+to}.first
-                    amount_result += amount_current * pair["price"].to_f
-                    next
-                  end
-                end
-        end
-puts coin_common1
-puts coin_common2
-puts pair_common
+      end
     end
-    return amount_result
+# если пары через промежуточную пару
+# puts "coin1 = #{coin1C}"
+# puts "coin2 = #{coin2C}"
+    if have?(from+coin1C)
+      current = wal.amount.to_f * value(from+coin1C)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current * value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current / value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    elsif have?(coin1C+from)
+      current = wal.amount.to_f / value(coin1C+from)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    elsif have?(from+coin2C)
+      current = wal.amount.to_f * value(from+coin2C)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current * value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current / value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    elsif have?(coin2C+from)
+      current = wal.amount.to_f / value(coin2C+from)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    end
+  end
+  puts "#{result}".yellow
+  return result
 end
 
-    # puts amount_result
-    # puts "#{wallet.from_currency} = #{wallet.amount}"
+class Wal_for_debug
+  attr_accessor :from_currency, :amount
+
+  def initialize(from_currency, amount)
+    @from_currency = from_currency
+    @amount = amount
+  end
+end
+
+wallets = [ Wal_for_debug.new("EUR", "100"),
+            Wal_for_debug.new("RUB", "6000")
+]
+
+# request(wallets, "USD")

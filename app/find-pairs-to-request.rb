@@ -1,8 +1,15 @@
 require 'json'
 require 'colorize'
+require 'pathname'
 
-Pairs = JSON.parse(File.read('../asset/all-pairs.txt'))
-Coins = JSON.parse(File.read('../asset/coins.txt'))
+
+
+
+all_pairs = Pathname.new(__dir__ + "/../asset/all-pairs.txt")
+coins     = Pathname.new(__dir__ + "/../asset/coins.txt")
+
+Pairs = JSON.parse(File.read(all_pairs))
+Coins = JSON.parse(File.read(coins))
 
 
 

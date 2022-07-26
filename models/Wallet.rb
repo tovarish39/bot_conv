@@ -1,7 +1,11 @@
 require 'telegram/bot'
 require 'active_record'
+require 'pathname'
 
-ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: '../db/db.db')
+project_root = File.dirname(__dir__ )
+db = Pathname.new(project_root + "/db/db.db")
+
+ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: db)
 
 class Wallet < ActiveRecord::Base
     belongs_to :user
@@ -18,5 +22,3 @@ class Wallet < ActiveRecord::Base
 
     scope :wallets, -> (id) {where(user_id:id)}
 end
-
-

@@ -34,7 +34,6 @@ Telegram::Bot::Client.run(token) do |bot|
           else
             result_amount = request(wallets, current_user.to_currency).to_s
             message_from = get_message_from(wallets)          
-            # bot.api.send_message(chat_id: message.chat.id, text: result)
             message_to = "это может быть конвертировано в #{result_amount} \"#{current_user.to_currency}\""
             bot.api.send_message(chat_id: message.chat.id, text: message_from)
             bot.api.send_message(chat_id: message.chat.id, text: message_to)

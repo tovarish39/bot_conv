@@ -1,137 +1,390 @@
+require 'net/http'
 require 'json'
 require 'colorize'
+require_relative './find-pairs-to-request.rb'
+# require_relative '../models/Wallet.rb'
+# require_relative '../models/User.rb'
 
-Pairs = JSON.parse(File.read('../asset/all-pairs.txt'))
-Coins = JSON.parse(File.read('../asset/coins.txt'))
-
-
-
-# не забыть RUB => RUB
-
-# если есть прямая пара или обратная
-def get_pair_L1(from, to)
-  pair_direct = Pairs.include?(from + to) ? from + to : nil  
-  pair2_reverse = Pairs.include?(to + from) ? to + from : nil  
-  return nil unless pair_direct || pair2_reverse
-  return {pair: pair_direct,   direction: 'direct', have_in_Pairs?: Pairs.include?(pair_direct) } if pair_direct
-  return {pair: pair2_reverse, direction: 'reverse', have_in_Pairs?: Pairs.include?(pair2_reverse)} if pair2_reverse
-end
-
-
-
-
-def get_rests(from, to)
-  pairs_with_from = Pairs.filter{|pair| pair.match(/^#{from}|#{from}$/)}
-  pairs_with_to   = Pairs.filter{|pair| pair.match(/^#{to}|#{to}$/)}
-
-  rest_of_pairs_with_from_raw = pairs_with_from.map {|pair| pair.gsub(/^#{from}|#{from}$/, '')}
-  rest_of_pairs_with_to_raw   = pairs_with_to.map   {|pair| pair.gsub(/^#{to}|#{to}$/, '')}
-
-  rest_of_pairs_with_from = rest_of_pairs_with_from_raw.filter {|coin_raw| Coins.include?(coin_raw)}
-  rest_of_pairs_with_to   = rest_of_pairs_with_to_raw.filter {|coin_raw| Coins.include?(coin_raw)}
+def request(wallets, to)
+  coins_from = []
+  pairs_to_request = []
+  result = 0
   
-  return [rest_of_pairs_with_from, rest_of_pairs_with_to, pairs_with_from, pairs_with_to]
-end
-
-# если есть между currencies 2-е пары с 3-ей промежуточной currency
-def get_pairs_L2(from, to)
-  rest_of_pairs_with_from, rest_of_pairs_with_to, pairs_with_from, pairs_with_to = get_rests(from, to)
-
-  common_coin = rest_of_pairs_with_from.intersection(rest_of_pairs_with_to)
-  common_coin_first = common_coin[0]
-  return nil if common_coin_first.nil?
-
+  for wallet in wallets
+    coins_from << wallet.from_currency 
+  end
   
-  first_pair  = Pairs.include?(from + common_coin_first) ? from + common_coin_first : common_coin_first + from
-  second_pair = Pairs.include?(to + common_coin_first)   ? to + common_coin_first   : common_coin_first + to
-  
-  first_direction  =  first_pair.match(/^#{from}/) ? 'direct' : 'reverse' 
-  second_direction = second_pair.match(/^#{to}/)   ? 'direct' : 'reverse' 
-  puts "error".red unless Pairs.include?(first_pair) || Pairs.include?(second_pair)
-  return {:first_pair  => { pair: first_pair,  direction: first_direction, have_in_Pairs?: Pairs.include?(first_pair)},
-          :second_pair => { pair: second_pair, direction: second_direction, have_in_Pairs?: Pairs.include?(second_pair)}
-        }
-end
+  for from in coins_from
+    next if from == to 
+    pair_s = get_pair_L1(from, to) || get_pairs_L2(from, to) || get_pairs_L3(from, to)
+    pair_s[:pairs].each {|pair| pairs_to_request << pair}
+  end
 
-# если между currencies промежуточная пара
-def get_pairs_L3(from, to)
-  
-  rest_of_pairs_with_from, rest_of_pairs_with_to, pairs_with_from, pairs_with_to = get_rests(from, to)
-  
-  pair_common = ''
-  coin1_of_pair_common  = ''
-  coin2_of_pair_common = ''
-  dicrection_of_pair_common = ''
-  first_pair = ''
-  second_pair = ''
+  # pairs_to_request = ["BTCEUR", "BTCBUSD", "BTCBBTC", "BTCRUB", "BTCBUSD", "BTCBBTC"]
 
-  coin11 = ''
-  coin12 = ''
-  coin21 = ''
-  coin22 = ''
+  return wallets.first.amount if  pairs_to_request.size == 0
+
+  pairs_str = pairs_to_request.uniq.join('","')
   
-    for coin1 in rest_of_pairs_with_from do
-      for coin2 in rest_of_pairs_with_to do
-        pair_direct  = coin1 + coin2
-        pair_reverse = coin2 + coin1
-        if Pairs.include?(pair_direct)
-          coin1_of_pair_common  = coin1
-          coin2_of_pair_common = coin2
-          dicrection_of_pair_common = 'direct'
-          pair_common = pair_direct
+  params = "symbols=[\"#{pairs_str}\"]"
+  uri = URI("https://api.binance.com/api/v3/ticker/price?#{params}")
+  
+  res = JSON.parse(Net::HTTP.get(uri))  
+  @res_pairs = res.map {|obj| {obj["symbol"]=>obj["price"]}}
+  
+puts "cois from = ".yellow + "#{coins_from}"
+puts "coin to   = ".yellow + to
+puts "response  = ".yellow + "#{res}"
+#########################################################################################################################
+# handle response
+  def value(pair)
+      @res_pairs.each  do |obj|
+      if obj.keys.first == pair 
+        return obj.values.first.to_f
+      end
+    end
+  end
+
+  def have?(pair)
+    @res_pairs.each do |obj| 
+      if obj.keys.first == pair 
+        return true
+      end
+    end
+    return false
+  end
+
+  def with_common_pair()
+  end
+#########################################################################################################################
+  for wal in wallets
+puts "#{result} = result".yellow
+    current = 0
+    from = wal.from_currency
+#########################################################################################################################
+# если from и to одинаковы
+    if from == to; result += wal.amount.to_f; next; end
+
+#########################################################################################################################
+# если есть прямая или обратная пара из from и to
+    if have?(from+to)
+      result += wal.amount.to_f * value(from+to); next
+    elsif have?(to+from)
+      result += wal.amount.to_f / value(to+from); next
+    end
+
+#########################################################################################################################
+#############
+    response_pairs_arr = res.map {|obj| obj["symbol"]}
+    rests_from = response_pairs_arr.filter{|pair| pair.match(/^#{from}|#{from}$/)}.map{|pair| pair.gsub(/^#{from}|#{from}$/, '')}
+    rests_to   = response_pairs_arr.filter{|pair| pair.match(/^#{to}|#{to}$/)}    .map{|pair| pair.gsub(/^#{to}|#{to}$/, '')}
+# если пары через промежуточную валюту
+    common_coin = rests_from.intersection(rests_to).first
+    if common_coin
+      if have?(from+common_coin)
+        current = wal.amount.to_f * value(from+common_coin)
+        if have?(to+common_coin)
+          result += current / value(to+common_coin); next
+        elsif have?(common_coin+to)
+          result += current * value(common_coin+to); next
+        end
+      elsif have?(common_coin+from)
+        current = wal.amount.to_f / value(common_coin+from)
+        if have?(to+common_coin)
+          result += current / value(to+common_coin); next
+        elsif have?(common_coin+to)
+          result += current * value(common_coin+to); next
+        end
+      end
+    end
+#########################################################################################################################
+#############
+    coin1C = ''# common coin 1
+    coin2C = ''# common coin 2
+    pairC  = '' # common pair
+    for coin1 in rests_from do
+      for coin2 in rests_to do
+        if have?(coin1+coin2)
+          pairC = coin1+coin2
+          coin1C = coin1
+          coin2C = coin2
           break
-        elsif Pairs.include?(pair_reverse)
-          coin1_of_pair_common  = coin1
-          coin2_of_pair_common = coin2
-          dicrection_of_pair_common = 'reverse'
-          pair_common = pair_reverse
+        elsif have?(coin2+coin1)  
+          pairC = coin2+coin1
+          coin1C = coin2
+          coin2C = coin1
           break
         end
       end
-      break if pair_common.size > 0
     end
+# если пары через промежуточную пару
 
-  if dicrection_of_pair_common == 'direct'
-    first_pair  = Pairs.include?(from + coin1_of_pair_common) ? from + coin1_of_pair_common : coin1_of_pair_common + from
-    coin11 = from
-    coin12 = coin1_of_pair_common
-    second_pair = Pairs.include?(to + coin2_of_pair_common)   ? to + coin2_of_pair_common   : coin2_of_pair_common + to
-    coin21 = to
-    coin22 = coin2_of_pair_common
-  elsif   dicrection_of_pair_common == 'reverse'
-    first_pair  = Pairs.include?(from + coin1_of_pair_common) ? from + coin1_of_pair_common  : coin1_of_pair_common + from
-    coin11 = from
-    coin12 = coin1_of_pair_common
-    second_pair = Pairs.include?(to + coin2_of_pair_common)   ?  to + coin2_of_pair_common    : coin2_of_pair_common + to
-    coin21 = to
-    coin22 = coin2_of_pair_common
+    if have?(from+coin1C)
+      current = wal.amount.to_f * value(from+coin1C)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current * value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current / value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    elsif have?(coin1C+from)
+      current = wal.amount.to_f / value(coin1C+from)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    elsif have?(from+coin2C)
+      current = wal.amount.to_f * value(from+coin2C)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current * value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current / value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    elsif have?(coin2C+from)
+      current = wallet.amount.to_f / value(coin2C+from)
+      if have?(coin1C+coin2C)
+        current *= value(coin1C+coin2C)
+        if have?(to+coin1C)
+          result += current / value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current * value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      elsif have?(coin2C+coin1C)
+        current /= value(coin2C+coin1C)
+        if have?(to+coin1C)
+          result += current * value(to+coin1C); next
+        elsif have?(coin1C+to)
+          result += current / value(coin1C+to); next
+        elsif have?(to+coin2C)
+          result += current / value(to+coin2C); next
+        elsif have?(coin2C+to)
+          result += current * value(coin2C+to); next
+        end
+      end
+    end
   end
-
-  first_direction  =  first_pair.match(/^#{from}/) ? 'direct' : 'reverse' 
-  second_direction = second_pair.match(/^#{to}/)   ? 'direct' : 'reverse' 
-  puts "error".red unless Pairs.include?(first_pair) || Pairs.include?(second_pair) || Pairs.include?(pair_common)
-  return {:first_pair =>  { pair: first_pair, direction: first_direction, coin_from:coin11, coin_last:coin12, have_in_Pairs?: Pairs.include?(first_pair)},
-          :second_pair => { pair: second_pair, direction: second_direction, coin_to:coin21, coin_last:coin22, have_in_Pairs?: Pairs.include?(second_pair)},
-          :pair_common => { pair: pair_common, direction: dicrection_of_pair_common, coin1:coin1_of_pair_common, coin2:coin2_of_pair_common, have_in_Pairs?: Pairs.include?(pair_common)} }
+  puts result
+  return result
 end
 
+class Wal_for_debug
+  attr_accessor :from_currency, :amount
+
+  def initialize(from_currency, amount)
+    @from_currency = from_currency
+    @amount = amount
+  end
+end
+
+wallets = [ Wal_for_debug.new("EUR", "100"),
+            Wal_for_debug.new("RUB", "6000")
+]
+
+request(wallets, "USD")
 
 
-# to = Coins[rand(Coins.size-1)]
-# coins = [] 
-# 1000.times do
-#    coins << Coins[rand(Coins.size-1)]
-# end
-# puts  "coins from =  #{coins}".yellow
-# puts  "coin to =  #{to}".green
 
 
-# for from in coins
-#   if from == to
-#     puts from.cyan + to.red
-#     next
-#   end
-#   pair_s = get_pair_L1(from, to) || get_pairs_L2(from, to) || get_pairs_L3(from, to)
-#   # puts pair_s
-# end
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def with_common_pair()
+    
+  coin1C = ''# common coin 1
+  coin2C = ''# common coin 2
+  pairC  = '' # common pair
+  for coin1 in rests_from do
+    for coin2 in rests_to do
+      if have?(coin1+coin2)
+        pairC = coin1+coin2
+        coin1C = coin1
+        coin2C = coin2
+        break
+      elsif have?(coin2+coin1)  
+        pairC = coin2+coin1
+        coin1C = coin2
+        coin2C = coin1
+        break
+      end
+    end
+  end
+# если пары через промежуточную пару
+
+  if have?(from+coin1C)
+    current = wal.amount.to_f * value(from+coin1C)
+    if have?(coin1C+coin2C)
+      current *= value(coin1C+coin2C)
+      if have?(to+coin1C)
+        result += current / value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current * value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current * value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current / value(coin2C+to); next
+      end
+    elsif have?(coin2C+coin1C)
+      current /= value(coin2C+coin1C)
+      if have?(to+coin1C)
+        result += current * value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current / value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current / value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current * value(coin2C+to); next
+      end
+    end
+  elsif have?(coin1C+from)
+    current = wal.amount.to_f / value(coin1C+from)
+    if have?(coin1C+coin2C)
+      current *= value(coin1C+coin2C)
+      if have?(to+coin1C)
+        result += current / value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current * value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current / value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current * value(coin2C+to); next
+      end
+    elsif have?(coin2C+coin1C)
+      current /= value(coin2C+coin1C)
+      if have?(to+coin1C)
+        result += current * value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current / value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current / value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current * value(coin2C+to); next
+      end
+    end
+  elsif have?(from+coin2C)
+    current = wal.amount.to_f * value(from+coin2C)
+    if have?(coin1C+coin2C)
+      current *= value(coin1C+coin2C)
+      if have?(to+coin1C)
+        result += current / value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current * value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current * value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current / value(coin2C+to); next
+      end
+    elsif have?(coin2C+coin1C)
+      current /= value(coin2C+coin1C)
+      if have?(to+coin1C)
+        result += current * value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current / value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current / value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current * value(coin2C+to); next
+      end
+    end
+  elsif have?(coin2C+from)
+    current = wallet.amount.to_f / value(coin2C+from)
+    if have?(coin1C+coin2C)
+      current *= value(coin1C+coin2C)
+      if have?(to+coin1C)
+        result += current / value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current * value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current / value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current * value(coin2C+to); next
+      end
+    elsif have?(coin2C+coin1C)
+      current /= value(coin2C+coin1C)
+      if have?(to+coin1C)
+        result += current * value(to+coin1C); next
+      elsif have?(coin1C+to)
+        result += current / value(coin1C+to); next
+      elsif have?(to+coin2C)
+        result += current / value(to+coin2C); next
+      elsif have?(coin2C+to)
+        result += current * value(coin2C+to); next
+      end
+    end
+  end
+end

@@ -5,7 +5,7 @@ def start(bot, message)
     greeting = 'Добро пожаловать в бот "Мои финансы" вы можете заполнить свой банк и отслеживать конвертацию банка в выбраной валюте, которая по умолчанию "RUB"'
     kb_below = Telegram::Bot::Types::ReplyKeyboardMarkup
       .new(keyboard: [['текущее состояние банка', 'инструкция по изменению отслеживаемых валют']], resize_keyboard:true)
-      bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup:kb_below, one_time_keyboard: false)
+      bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup:kb_below)
   end
   
   def instruction(bot, message)
