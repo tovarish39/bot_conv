@@ -4,7 +4,7 @@ require 'pathname'
 
 project_root = File.dirname(__dir__ )
 db = Pathname.new(project_root + "/db/db.db")
-
+# db = '../db/db.db'
 ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: db)
 
 class Wallet < ActiveRecord::Base

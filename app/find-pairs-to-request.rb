@@ -4,7 +4,6 @@ require 'pathname'
 
 
 
-
 all_pairs = Pathname.new(__dir__ + "/../asset/all-pairs.txt")
 coins     = Pathname.new(__dir__ + "/../asset/coins.txt")
 

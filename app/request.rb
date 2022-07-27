@@ -2,10 +2,18 @@ require 'net/http'
 require 'json'
 require 'colorize'
 require_relative './find-pairs-to-request.rb'
-# require_relative '../models/Wallet.rb'
-# require_relative '../models/User.rb'
+require_relative '../models/Wallet.rb'
+
+wallets = Wallet.where(user_id:2)
+# puts '1'
+# puts wallets.class
+# puts wallets.first.from_currency
+# puts '1'
+
+
 
 def request(wallets, to)
+  puts wallets
   coins_from = []
   pairs_to_request = []
   result = 0
@@ -20,7 +28,6 @@ def request(wallets, to)
     pair_s[:pairs].each {|pair| pairs_to_request << pair}
   end
 
-  # pairs_to_request = ["BTCEUR", "BTCBUSD", "BTCBBTC", "BTCRUB", "BTCBUSD", "BTCBBTC"]
 
   return wallets.first.amount if  pairs_to_request.size == 0
 
@@ -227,17 +234,18 @@ puts "response  = ".yellow + "#{res}"
   return result
 end
 
-class Wal_for_debug
-  attr_accessor :from_currency, :amount
 
-  def initialize(from_currency, amount)
-    @from_currency = from_currency
-    @amount = amount
-  end
-end
+request(wallets, "USD")
+# class Wal_for_debug
+#   attr_accessor :from_currency, :amount
 
-wallets = [ Wal_for_debug.new("EUR", "100"),
-            Wal_for_debug.new("RUB", "6000")
-]
+#   def initialize(from_currency, amount)
+#     @from_currency = from_currency
+#     @amount = amount
+#   end
+# end
 
-# request(wallets, "USD")
+# wallets = [ Wal_for_debug.new("EUR", "100"),
+#             Wal_for_debug.new("RUB", "6000")
+# ]
+
