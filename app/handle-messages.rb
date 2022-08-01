@@ -2,10 +2,10 @@ require 'telegram/bot'
 
 
 def start(bot, message)
-    greeting = 'Добро пожаловать в бот "Мои финансы" вы можете заполнить свой банк и отслеживать конвертацию банка в выбраной валюте, которая по умолчанию "RUB"'
-    kb_below = Telegram::Bot::Types::ReplyKeyboardMarkup
-      .new(keyboard: [['текущее состояние банка', 'инструкция по изменению отслеживаемых валют']], resize_keyboard:true)
-      bot.api.send_message(chat_id: message.chat.id, text: greeting, reply_markup:kb_below)
+    greeting = '<strong>Добро пожаловать</strong> в бот <strong>"Мои финансы"</strong> вы можете заполнить свой банк и отслеживать конвертацию банка в выбраной валюте, которая по умолчанию "RUB"'
+    # kb_below = Telegram::Bot::Types::ReplyKeyboardMarkup
+      # .new(keyboard: [['текущее состояние банка', 'инструкция по изменению отслеживаемых валют']], resize_keyboard:true)
+      bot.api.send_message(chat_id: message.chat.id, text: greeting, parse_mode: "HTML")
   end
   
   def instruction(bot, message)
@@ -14,8 +14,9 @@ def start(bot, message)
     manage_to_currency = 'изменение валюты для конвертации введите: "конвертировать в "краткое наименование валюты"". Пример "конвертировать в USD"'
   
     kb_inline = [[
-      Telegram::Bot::Types::InlineKeyboardButton.new(text: "список фиатных валют", callback_data: "список фиатных валют"),
-      Telegram::Bot::Types::InlineKeyboardButton.new(text: "список крипто валют", callback_data: "список крипто валют")
+      # Telegram::Bot::Types::InlineKeyboardButton.new(text: "список фиатных валют", callback_data: "список фиатных валют"),
+      # Telegram::Bot::Types::InlineKeyboardButton.new(text: "список крипто валют", callback_data: "список крипто валют")
+      Telegram::Bot::Types::InlineKeyboardButton.new(text: "список крипто и фиатных валют", callback_data: "список крипто и фиатных валют")
      ]]
     markup = Telegram::Bot::Types::InlineKeyboardMarkup.new(inline_keyboard: kb_inline)
   

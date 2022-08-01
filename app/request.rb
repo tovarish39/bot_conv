@@ -4,7 +4,7 @@ require 'colorize'
 require_relative './find-pairs-to-request.rb'
 require_relative '../models/Wallet.rb'
 
-wallets = Wallet.where(user_id:2)
+# wallets = Wallet.where(user_id:2)
 # puts '1'
 # puts wallets.class
 # puts wallets.first.from_currency
@@ -13,7 +13,7 @@ wallets = Wallet.where(user_id:2)
 
 
 def request(wallets, to)
-  puts wallets
+  # puts wallets
   coins_from = []
   pairs_to_request = []
   result = 0
@@ -235,7 +235,8 @@ puts "response  = ".yellow + "#{res}"
 end
 
 
-request(wallets, "USD")
+
+# request(wallets, "USD")
 # class Wal_for_debug
 #   attr_accessor :from_currency, :amount
 

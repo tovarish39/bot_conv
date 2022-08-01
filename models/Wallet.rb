@@ -20,5 +20,10 @@ class Wallet < ActiveRecord::Base
         wallet ? wallet.destroy : ''
     end
 
+    def self.create_update_from_reply(current_user_id, cur_currency, value)
+        wallet = Wallet.find_by(user_id:current_user_id, from_currency:cur_currency)
+        wallet ? wallet.update(amount:value) : Wallet.create(user_id:current_user_id, from_currency:cur_currency, amount:value)
+    end
+
     scope :wallets, -> (id) {where(user_id:id)}
 end
